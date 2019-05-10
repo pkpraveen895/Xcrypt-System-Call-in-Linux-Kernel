@@ -1,3 +1,7 @@
+Implemented a new system call in Linux Kernel to support Encryption/Decryption using AES algorithm.The project was carried out under the guidance of Prof. Erez Zadok. The user level code takes the input file, output file ,cipher mode and the encrypt/decrypt flag as input parameters.The system call performs the required validations in the kernel space and uses the CryptoAPI to perform the required encryption/decryption.Password was encoded in the user and kernel spaces using MD5 hash. 
+
+
+
 Submission contains following files:
 
 1. install_module.sh
