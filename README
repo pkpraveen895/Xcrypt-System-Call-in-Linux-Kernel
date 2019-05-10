@@ -1,0 +1,162 @@
+Submission contains following files:
+
+1. install_module.sh
+2. Makefile
+3. README
+4. sys_xcpenc.c
+5. xhw1.c
+6. kernel.config
+
+install_module.sh :
+	Contains necessary commands to remove the previous sys_xcrypt.ko if exists, then inserts from the sys_cpenc.ko module to the linux kernel
+
+Makefile :
+	Contains necessary commands to run the user code and also to run system call and laters generates the requiredmodule to load.
+
+README :
+	Contains necessary implementation details and steps to algorithm(steps) followed  to run the program.
+
+kernel.config :
+	The file contains the various options that I set to boot the kernel.
+
+xhw1.c :
+        user land code.
+
+sys_xcrypt.c :
+	system call kernel code.
+
+
+Details for Running :
+
+1. First do a "make clean" in the directory which has above files
+   This will remove the previously built executables and modules
+
+2. then run make
+   This will build the new executables and modules
+
+   rmmod might return a warning if there is no previously loaded module
+
+4. Now run  sh install_module.sh
+   this will insert the above generated module to linux kernel ( run as root )
+
+5. now you can invoke user land program.
+
+Command to run the programs :
+
+./xhw1 -p "passwordKey" -e|-d|-c <inputfile> <outputfile>
+ 
+'h' is help function ( if given will give the syntax )
+
+where,
+'-c' to copy input file to output file,
+'-p' is passwordkey from user (mandatory) atleast 6 chars long ,
+'-e' to encrypt input file and to store in output file,
+'-d' to decrypt input file and to store in output file,
+
+<inputfile>  is file to either encrypt/decrypt,
+<outputfile> is file to store encrypted/decrypted data.
+
+if args are wrong it will give syntax and throw error
+
+Examples.,
+
+
+1) wrongly invoked
+
+[root@vl174 CSE-506]# ./xhw1 -f
+./xhw1: invalid option -- 'f'
+Unknown opt. 
+Syntax is: ./xhw1 -p "passwordKey" -e|-d|-c <input_file> <output_file>
+
+2) wrongly invoked
+
+[root@vl174 CSE-506]# ./xhw1
+Syntax is: ./xhw1 -p "passwordKey" -e|-d|-c <input_file> <output_file>
+
+3) correctly invoked
+
+[root@vl174 CSE-506]# ./xhw1 -p "ABCDEFG" -c /usr/src/hw1-vyelleswarap/CSE-506/input.txt /usr/src/hw1-vyelleswarap/CSE-506/output.txt 
+
+This program copies input.txt file to output.txt file
+
+
+4) help option
+
+[root@vl174 CSE-506]# ./xhw1 -h
+Syntax is: ./xhw1 -p "passwordKey" -e|-d|-c <input_file> <output_file>
+
+
+5) correctly invoked but program fails due to same input and output files
+
+[root@vl174 CSE-506]# ./xhw1 -p "ABCDEFG" -d /usr/src/hw1-vyelleswarap/CSE-506/output1.txt /usr/src/hw1-vyelleswarap/CSE-506/output1.txt 
+ SYSCALL ERROR : Operation not permitted
+ user level - syscall returned -1 ( errno = 1 ) 
+
+
+
+
+
+
+
+Code details :
+----------  USER LAND CODE -----------
+
+1) Used getopt function to parse the arguments passed by user
+2) if any arguments are missing i will return the syntax to display proper usage
+3) If none of the arguments are missing then i will check if they are null or not.
+4) password is checked if it is atleast 6 chars long else returns an error
+5) If everything is fine we will create a structure which contains inputfile, key buffer, key length , outputfile, flags 
+6) malloc is used to allocate memory for all arguments, if memory allocation fails we exit the program
+7) user args are copied into structure, for flags 1 indicated encryption , 2 indicates decryption and 4 indicates copy
+8) the password which is passed by user is converted to a 16 byte key using md5 hash which is passed to kernel
+9) if there are no errors above then structure is casted(void) & given to sys call.
+10) whatever value that is returned by system call is captured, if it is 0 then it is a success else an error.
+11) All spaces that are allocated are freed in both successful and failure cases.
+
+
+
+
+---------- Kernel code (system call) -----------
+
+
+1) The system call cpenc.c takes a void argument 
+2) if args are null, then I will return -EINVAL ( invalid arguments ) else i will replicate the structure and try to copy the args value to this structure in kernel.
+3) I will check if any arg that is passed at user is null in kernel code, if so i will return -EINVAL
+4) copy_from_user, strnlen_user, strncpy_from_user are used to copy user land arguments to kernel space, once copy is successful, if any of them is NULL, i will return appropriate error code.
+5) when kmalloc is used to allocate space in kernel, if it fails i will return "-ENOMEM".
+6) Once when copy of args is successful and none of them is null, i will check if value of flags is 1 or 2 or 4, if it is not i will return -EINVAL. I will also check if length of key size passed at user land is same as the size of key in buffer.
+7) After above arguments check are done, i will check input file, if it doesnt exist i will return -ENOENT, if it is not a regular file i will return -EISDIR
+8) i will check output file, if it doesnt exist i will create it, if it already exists then i will overwrite it, in both cases with the same inout file permissions. If it is not a regular file i will return -EISDIR
+9) I will now check if inode numbers of input and output files are same, if they match i will return EPERM
+10) source buffer and destination buffer of sizes 4096 bytes( page size ) will be initialised for reading from file and writing to file respectively.
+11) if copy function, i will copy the content into the output file 
+12) if encrypt function, 4096 bytes(in loop) are read from the input file & sent to encryption function, I am using cbc(aes) which needs key, source buffer, destination buffer, length 	of source buffer, content from destination buffer is written to output file. If number of bytes read from input file is less than 4096, it is used as an indicator that it is the last read operation
+13) if decrypt function, 4096 bytes(in loop) are read from input file & sent to decryption function, I am using cbc(aes) which needs key, source buffer, destination buffer, length of source buffer, content from destination buffer is written to output file. If number of bytes read from input file is less than 4096, it is used as an indicator that it is the last read operation
+14) In between decryption or encryption if anything fails i will return an error.
+
+
+I added 13 scripts, each of them will check a unqiue scenario these can be run by giving sh script1.sh, sh script2.sh, sh script3.sh ..... so till sh script13.sh
+
+script1.sh check if copy function is working properly
+script2.sh checks if encrypt and decrypt is working properly
+script3.sh checks scenario whne there is no output file
+script4.sh checks the scenario when directory is passed as an input file
+script5.sh checks when input and output files point to the same file
+script6.sh checks when both decrypt and encrypt are specified
+script7.sh checks when invalid input file is passed 
+script8.sh checks when  password is less than 6 bytes 
+script9.sh checks if zero size files work
+script10.sh checks copy, encrypt and decrypt check for a file whose data length 1002 
+script11.sh checks copy, encrypt and decrypt check for a file whose data length 5002
+script12.sh checks copy, encrypt and decrypt check for a file whose data length 10002
+script13.sh checks basic functionality of copy, encrypt and decrypt
+
+
+References :
+
+1. https://davejingtian.org/2014/06/18/crypto-use-linux-kernel-crypto-api/
+2. /crypto/api-intro.txt for implementations of crypto api
+3. Initial hw1.txt file containing code for read / write.
+4. http://www.logix.cz/michal/devel/cryptodev/cryptoapi-demo.c
+5. Initial Patch provided by professor.
+
