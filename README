@@ -3,6 +3,7 @@ The user level code takes the input file, output file ,cipher mode and the encry
 The system call performs the required validations in the kernel space and uses the CryptoAPI to perform the required encryption/decryption.
 Password was encoded in the user and kernel spaces using MD5 hash. 
 
+ENCRYPTION / DECRYPTION ALGORITHM DETAILS: - AES algorithm in CTR mode is being used in this syscall, which is taking care of padding in last page (if file size is not a multiple of PAGE_SIZE). Therefore padding is not handled explicitly - Points to be noted regarding encryption: a) H1 (hashed key), given from user program, is being hashed again in syscall using 'md5' hashing algorithm to get H2 b) hashed key H2 is being written to output file as preamble, which will be used later for validation of password during decryption c) apart from hashed key H2, a constant IV (initialization vector) is being used to prevent dictionary attack - Points to be noted regarding decryption: a) H1 (hashed key), given from user program, is being hashed again in syscall using 'md5' hashing algorithm to get H2 b) hashed key (H3) is getting extracted from preamble of input file to be decrypted. It returns error if H3 does not matches H2
 
 
 Submission contains following files:
